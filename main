@@ -1,0 +1,237 @@
+ellipsefigure.h
+#ifndef ELLIPSEFIGURE_H
+#define ELLIPSEFIGURE_H
+#include "interfacefigure.h"
+
+class EllipseFigure: public InterfaceFigure
+{
+public:
+    EllipseFigure();
+    void draw(QPainter &painter) const override;
+    bool selectTest(const QPointF &point) const override;
+
+    double left() const;
+    void setLeft(double newLeft);
+
+    double top() const;
+    void setTop(double newTop);
+
+    double width() const;
+    void setWidth(double newWidth);
+
+    double height() const;
+    void setHeight(double newHeight);
+
+protected:
+    double mLeft=0;
+    double mTop=0;
+    double mWidth=100;
+    double mHeight=100;
+};
+
+
+
+#endif // ELLIPSEFIGURE_H
+interfacefigure.h
+#ifndef INTERFACEFIGURE_H
+#define INTERFACEFIGURE_H
+#include <QPainter>
+
+class InterfaceFigure
+{
+public:
+    InterfaceFigure();
+    virtual void draw(QPainter &painter) const =0;
+    void regenerateColorSettings();
+    virtual bool selectTest(const QPointF &point) const=0;
+    const QPen &pen() const;
+    void setPen(const QPen &newPen);
+    const QBrush &brush() const;
+    void setBrush(const QBrush &newBrush);
+
+protected:
+    QPen mPen=QPen(Qt::red);
+    QBrush mBrush=QBrush(Qt::green);
+};
+
+#endif // INTERFACEFIGURE_H
+plot.h
+#ifndef PLOT_H
+#define PLOT_H
+
+#include <QWidget>
+#include <interfacefigure.h>
+class Plot : public QWidget
+{
+    Q_OBJECT
+
+public:
+    Plot(QWidget *parent = nullptr);
+    //~Plot();
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+private:
+    std::vector<std::shared_ptr<InterfaceFigure>> mFigures;
+};
+#endif // PLOT_H
+elliplefigure.cpp
+#include "ellipsefigure.h"
+#include <QPainterPath>
+EllipseFigure::EllipseFigure()
+{
+
+}
+void EllipseFigure::draw(QPainter &painter) const{
+    painter.setPen(mPen);
+    painter.setBrush(mBrush);
+    painter.drawEllipse(QRectF(mLeft,mTop,mWidth,mHeight));
+}
+bool EllipseFigure::selectTest(const QPointF &point) const
+{
+    QPainterPath path;
+    path.addEllipse(QRectF(mLeft,mTop,mWidth,mHeight));
+    return path.contains(point);
+}
+double EllipseFigure::left() const
+{
+    return mLeft;
+}
+
+void EllipseFigure::setLeft(double newLeft)
+{
+    mLeft = newLeft;
+}
+
+double EllipseFigure::top() const
+{
+    return mTop;
+}
+
+void EllipseFigure::setTop(double newTop)
+{
+    mTop = newTop;
+}
+
+double EllipseFigure::width() const
+{
+    return mWidth;
+}
+
+void EllipseFigure::setWidth(double newWidth)
+{
+    mWidth = newWidth;
+}
+
+double EllipseFigure::height() const
+{
+    return mHeight;
+}
+
+void EllipseFigure::setHeight(double newHeight)
+{
+    mHeight = newHeight;
+}
+interfacefigure.cpp
+#include "interfacefigure.h"
+#include <QRandomGenerator>
+InterfaceFigure::InterfaceFigure()
+{
+
+}
+void InterfaceFigure::regenerateColorSettings(){
+    mPen.setColor(
+                QColor(
+                    QRandomGenerator::global()->bounded(256),
+                     QRandomGenerator::global()->bounded(256),
+                     QRandomGenerator::global()->bounded(256)
+                   )
+                );
+    mBrush.setColor(
+                QColor(
+                    QRandomGenerator::global()->bounded(256),
+                     QRandomGenerator::global()->bounded(256),
+                     QRandomGenerator::global()->bounded(256)
+                   )
+                );
+    mBrush.setStyle(
+                Qt::BrushStyle(1+QRandomGenerator::global()->bounded(14))
+                );
+}
+const QPen &InterfaceFigure::pen() const
+{
+    return mPen;
+}
+
+void InterfaceFigure::setPen(const QPen &newPen)
+{
+    mPen = newPen;
+}
+const QBrush &InterfaceFigure::brush() const
+{
+    return mBrush;
+}
+
+void InterfaceFigure::setBrush(const QBrush &newBrush)
+{
+    mBrush = newBrush;
+}
+main.cpp
+#include "plot.h"
+
+#include <QApplication>
+
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+    Plot w;
+    w.show();
+    return a.exec();
+}
+plot.cpp
+#include "plot.h"
+#include <QPainter>
+#include <ellipsefigure.h>
+#include <QMouseEvent>
+Plot::Plot(QWidget *parent)
+    : QWidget(parent)
+{
+    for(int i=0;i<10;i++){
+    auto ellipsePtr= std::make_shared<EllipseFigure>();
+    ellipsePtr->setLeft(i*100);
+    ellipsePtr->setTop(i*100);
+    ellipsePtr->regenerateColorSettings();
+    mFigures.emplace_back(ellipsePtr);
+    }
+}
+
+void Plot::paintEvent(QPaintEvent *event)
+{
+ QPainter painter(this);
+ painter.fillRect(rect(),Qt::darkGray);
+ painter.setPen(Qt::yellow);
+ painter.drawText(
+             rect(),
+             Qt::AlignCenter,
+             "Hello widget"
+             );
+ for(const auto &figure: mFigures)
+ {
+     figure->draw(painter);
+ }
+}
+void Plot::mousePressEvent(QMouseEvent *event)
+{
+    event->accept();
+    for(int i=mFigures.size()-1;i>-1;--i)
+    {
+        if(mFigures[i]->selectTest(event->position())){
+            if(event->button()==Qt::LeftButton)
+            {
+                mFigures[i]->regenerateColorSettings();
+            }
+            update();
+            break;
+        }
+    }
+}
